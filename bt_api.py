@@ -14,6 +14,6 @@ async def predict(file: UploadFile = File(...)):
     image = np.expand_dims(image, axis=0)  # Add batch dimension
 
     prediction = model.predict(image)
-    label = 'Tumor' if prediction[0] > 0.5 else 'No Tumor'  # Adjust according to your model's output
+    label = 'Tumor' if prediction[0] > 0.3 else 'No Tumor'  # Adjust according to your model's output
 
     return JSONResponse(content={"prediction": label})
