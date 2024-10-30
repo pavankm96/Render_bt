@@ -5,6 +5,5 @@ pillow
 numpy
 Python-IO
 uvicorn
-json
 requests
 os
