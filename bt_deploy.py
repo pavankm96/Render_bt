@@ -20,7 +20,7 @@ class PredictionResponse(BaseModel):
 # Helper function to preprocess the image
 def preprocess_image(image_data: bytes) -> np.array:
     img = Image.open(io.BytesIO(image_data))
-    img = img.resize((224, 224))  # Resize image to fit model input size
+    img = img.resize((128, 128))  # Resize image to fit model input size
     img = img.convert("RGB")  # Convert image to RGB
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
