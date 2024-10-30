@@ -1,49 +1,49 @@
-from fastapi import FastAPI, File, UploadFile
-from pydantic import BaseModel
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
-import numpy as np
+from fastapi import FastAPI, File, UploadFile, HTTPException
+import requests
 from PIL import Image
 import io
+import numpy as np
+import json
+import os
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Load the pre-trained brain tumor detection model
-model = load_model("Brain_tumor_pred_new.h5")
+# Hugging Face API details
+HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/pavankm96/brain_tumor_det"
+API_TOKEN = "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"
 
-# Define a response model to return results
-class PredictionResponse(BaseModel):
-    is_tumor: bool
-    confidence: float
+# Set up headers with authentication token
+headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-# Helper function to preprocess the image
-def preprocess_image(image_data: bytes) -> np.array:
-    img = Image.open(io.BytesIO(image_data))
-    img = img.resize((128, 128))  # Resize image to fit model input size
-    img = img.convert("RGB")  # Convert image to RGB
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
-    img_array /= 255.0  # Normalize to [0, 1] range
-    return img_array
+# Preprocess image (modify as needed based on model requirements)
+def preprocess_image(image: Image.Image):
+    image = image.resize((224, 224))  # Example size, adjust to model input size
+    image_array = np.array(image) / 255.0  # Normalize if needed
+    image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
+    return image_array.tolist()  # Convert to list for JSON serialization
 
-# Endpoint to handle predictions
-@app.post("/predict", response_model=PredictionResponse)
+# Define prediction endpoint
+@app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
-    # Read image file
-    image_data = await file.read()
-    
-    # Preprocess image for prediction
-    img_array = preprocess_image(image_data)
-    
-    # Make prediction
-    prediction = model.predict(img_array)
-    
-    # Assuming model output shape is [1, 1] and threshold of 0.5 for tumor detection
-    confidence = float(prediction[0][0])
-    is_tumor = confidence > 0.5
-    
-    return PredictionResponse(is_tumor=is_tumor, confidence=confidence)
+    try:
+        # Load and preprocess image
+        image = Image.open(io.BytesIO(await file.read()))
+        processed_image = preprocess_image(image)
 
-# To run the FastAPI app:
-# uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+        # Send request to Hugging Face API
+        response = requests.post(
+            HUGGING_FACE_API_URL,
+            headers=headers,
+            json={"inputs": processed_image}
+        )
+        
+        # Check for errors in the response
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail=response.json())
+        
+        # Get and return the model prediction
+        prediction = response.json()
+        return {"prediction": prediction}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
