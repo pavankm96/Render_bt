@@ -10,7 +10,7 @@ import io
 app = FastAPI()
 
 # Load the pre-trained brain tumor detection model
-model = load_model("model.h5")
+model = load_model("Brain_tumor_pred_new.h5")
 
 # Define a response model to return results
 class PredictionResponse(BaseModel):
