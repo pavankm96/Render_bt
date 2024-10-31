@@ -6,3 +6,4 @@ numpy
 Python-IO
 uvicorn
 requests
+huggingface_hub
