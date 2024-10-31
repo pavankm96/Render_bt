@@ -7,3 +7,4 @@ Python-IO
 uvicorn
 requests
 huggingface_hub
+python-multipart
