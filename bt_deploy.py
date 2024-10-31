@@ -1,47 +1,44 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-import requests
+from huggingface_hub import hf_hub_download
+import tensorflow as tf
+import numpy as np
 from PIL import Image
 import io
-import numpy as np
 
 app = FastAPI()
 
-# Hugging Face API details
-HUGGING_FACE_API_URL = "https://api-inference.huggingface.co/models/pavankm96/brain_tumor_det"
-API_TOKEN = "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"
+# Define your model repository and filename
+model_name = "pavankm96/brain_tumor_det"  # Replace with your actual Hugging Face model name
+model_filename = "Brain_tumor_pred.h5"   # Replace with the actual filename of your .h5 model
 
-# Set up headers with authentication token
-headers = {"Authorization": f"Bearer {API_TOKEN}"}
+# Download and load the model
+try:
+    model_path = hf_hub_download(repo_id=model_name, filename=model_filename)
+    model = tf.keras.models.load_model(model_path)
+except Exception as e:
+    raise RuntimeError(f"Failed to load the model: {e}")
 
-# Preprocess image (modify as needed based on model requirements)
+# Preprocess the image
 def preprocess_image(image: Image.Image):
-    image = image.resize((224, 224))  # Example size, adjust to model input size
-    image_array = np.array(image) / 255.0  # Normalize if needed
+    image = image.resize((224, 224))  # Resize to the model's expected input size
+    image_array = np.array(image) / 255.0  # Normalize to 0-1
     image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
-    return image_array.tolist()  # Convert to list for JSON serialization
+    return image_array
 
-# Define prediction endpoint
+# Prediction endpoint
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     try:
-        # Load and preprocess image
+        # Read and preprocess the image
         image = Image.open(io.BytesIO(await file.read()))
         processed_image = preprocess_image(image)
 
-        # Send request to Hugging Face API
-        response = requests.post(
-            HUGGING_FACE_API_URL,
-            headers=headers,
-            json={"inputs": processed_image}
-        )
-        
-        # Check for errors in the response
-        if response.status_code != 200:
-            raise HTTPException(status_code=response.status_code, detail=response.json())
-        
-        # Get and return the model prediction
-        prediction = response.json()
-        return {"prediction": prediction}
+        # Make a prediction
+        prediction = model.predict(processed_image)
+
+        # Process prediction (assuming binary classification: 0 for non-tumor, 1 for tumor)
+        tumor_detected = bool(np.argmax(prediction))  # Adjust based on your model's output structure
+        return {"tumor_detected": tumor_detected, "confidence": float(prediction[0][np.argmax(prediction)])}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
