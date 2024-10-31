@@ -20,7 +20,7 @@ headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
 # Preprocess the image (modify based on your model's requirements)
 def preprocess_image(image: Image.Image):
-    image = image.resize((224, 224))  # Resize to the model's input size
+    image = image.resize((128, 128))  # Resize to the model's input size
     image_array = np.array(image) / 255.0  # Normalize
     image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
     return image_array  # Return the processed image array directly
