@@ -28,20 +28,15 @@ def preprocess_image(image: Image.Image):
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     try:
-        # Load the image directly
+        # Load and preprocess the image
         image = Image.open(io.BytesIO(await file.read()))
         processed_image = preprocess_image(image)
-
-        # Save the processed image to a temporary file-like object
-        image_byte_array = io.BytesIO()
-        Image.fromarray((processed_image[0] * 255).astype(np.uint8)).save(image_byte_array, format='PNG')
-        image_byte_array.seek(0)  # Move the cursor to the beginning of the file-like object
 
         # Send request to Hugging Face API
         response = requests.post(
             API_URL,
             headers=headers,
-            files={"file": ("image.png", image_byte_array, "image/png")}  # Sending image as a file
+            json={"inputs": processed_image.tolist()}  # Sending image as JSON input
         )
 
         # Check for errors in the response
@@ -54,4 +49,3 @@ async def predict(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
