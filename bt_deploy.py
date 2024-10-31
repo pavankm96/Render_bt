@@ -18,33 +18,39 @@ API_TOKEN = "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"
 
 headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-# Preprocess the image (modify to match model's expected input format)
+# Preprocess the image (modify based on your model's requirements)
 def preprocess_image(image: Image.Image):
-    image = image.resize((128, 128))  # Resize to model's input size, if known
-    image_array = np.array(image) / 255.0  # Normalize to 0-1 range
+    image = image.resize((224, 224))  # Resize to the model's input size
+    image_array = np.array(image) / 255.0  # Normalize
     image_array = np.expand_dims(image_array, axis=0)  # Add batch dimension
-    return image_array.tolist()  # Convert to list for JSON serialization
+    return image_array  # Return the processed image array directly
 
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
     try:
-        # Load and preprocess the image
+        # Load the image directly
         image = Image.open(io.BytesIO(await file.read()))
         processed_image = preprocess_image(image)
 
-        # Send the processed image to the Hugging Face model
+        # Save the processed image to a temporary file-like object
+        image_byte_array = io.BytesIO()
+        Image.fromarray((processed_image[0] * 255).astype(np.uint8)).save(image_byte_array, format='PNG')
+        image_byte_array.seek(0)  # Move the cursor to the beginning of the file-like object
+
+        # Send request to Hugging Face API
         response = requests.post(
             API_URL,
             headers=headers,
-            json={"inputs": processed_image}
+            files={"file": ("image.png", image_byte_array, "image/png")}  # Sending image as a file
         )
 
-        # Check if the response was successful
-        if response.status_code == 200:
-            prediction = response.json()  # Get the model's prediction
-            return {"prediction": prediction}
-        else:
+        # Check for errors in the response
+        if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail=response.json())
+        
+        # Get and return the model prediction
+        prediction = response.json()
+        return {"prediction": prediction}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
